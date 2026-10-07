@@ -13,7 +13,7 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 
 ## Data contract
 - Source file: data/raw/ai4i2020.csv. Never read from the network after the one-off
-  fetch in scripts/fetch_data.py. Tests and CI never need the network.
+  fetch in scripts/fetch_once.py. Tests and CI never need the network.
 - Target: `Machine failure` (~3.4% positive, 339 of 10,000 rows).
 - Features: Air temperature, Process temperature, Rotational speed, Torque,
   Tool wear, plus Type (L, M, H), one-hot encoded inside the sklearn Pipeline.
@@ -45,9 +45,9 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 - No time series, no paid APIs, no cloud.
 
 ## Phases
-1 data contract (done) · 2 pipeline + evaluation · 3 training + MLflow ·
-4 gate · 5 registry + rollback · 6 monitoring + drift · 7 feedback + retrain ·
-8 API + CI + Docker.
+1 data contract (done) · 2 config + contexts · 3 pipeline + metrics + training +
+MLflow · 4 gate · 5 registry + rollback · 6 monitoring + drift ·
+7 feedback + retrain · 8 API + CI + Docker.
 
 ## Working style
 - Do only the phase I ask for. Do not scaffold later phases or empty files.
