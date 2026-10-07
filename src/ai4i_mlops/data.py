@@ -3,6 +3,8 @@ from pathlib import Path
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+from ai4i_mlops.config import SEED
+
 DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "raw" / "ai4i2020.csv"
 
 TARGET = "Machine failure"
@@ -27,7 +29,7 @@ def clean(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     return X, y
 
 
-def split(X, y, seed: int = 42) -> dict[str, tuple[pd.DataFrame, pd.Series]]:
+def split(X, y, seed: int = SEED) -> dict[str, tuple[pd.DataFrame, pd.Series]]:
     """60/20/20 split into train / future (simulated new labels) / test, stratified on Type x failure."""
     strata = X["Type"] + "_" + y.astype(str)
     X_train, X_rest, y_train, y_rest = train_test_split(
