@@ -20,6 +20,14 @@ MIN_RECALL: Final[float] = 0.60
 # Maximum allowed drop in pooled Average Precision relative to the current champion.
 AP_MARGIN: Final[float] = 0.05
 
+# Demo drift-alert threshold on the two-sample KS statistic, not a production-calibrated value.
+KS_THRESHOLD: Final[float] = 0.10
+# Deterministic sensor offsets for the drift demonstration (column -> amount added).
+SIMULATED_SHIFTS: Final[dict[str, float]] = {
+    "Air temperature": 2.0,
+    "Torque": 5.0,
+}
+
 ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
 MLFLOW_TRACKING_URI: Final[str] = f"sqlite:///{(ROOT / 'mlflow.db').as_posix()}"

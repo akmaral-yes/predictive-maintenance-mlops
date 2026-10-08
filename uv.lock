@@ -1671,6 +1671,7 @@ dependencies = [
     { name = "mlflow" },
     { name = "pandas" },
     { name = "scikit-learn" },
+    { name = "scipy" },
     { name = "ucimlrepo" },
 ]
 
@@ -1685,6 +1686,7 @@ requires-dist = [
     { name = "mlflow", specifier = ">=3.17.0" },
     { name = "pandas", specifier = ">=3.0.6" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
+    { name = "scipy", specifier = ">=1.18.1" },
     { name = "ucimlrepo", specifier = ">=0.0.7" },
 ]
 

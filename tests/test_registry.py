@@ -188,3 +188,13 @@ def test_m_cli_exit_codes():
 def test_registered_model_name_is_used():
     _register(*GOOD)
     assert registry.get_alias_version(CANDIDATE).name == REGISTERED_MODEL_NAME
+
+
+def test_get_champion_returns_version_and_source_run():
+    with pytest.raises(RegistryError, match="No champion"):
+        registry.get_champion()
+    run_id = _log_run(*GOOD)
+    registry.register_run_model(run_id)
+    assert registry.promote_candidate()
+    version, source_run = registry.get_champion()
+    assert (str(version.version), source_run) == ("1", run_id)

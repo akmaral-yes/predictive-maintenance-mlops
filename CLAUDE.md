@@ -45,8 +45,11 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
   registered only once.
 - CI never uses MLflow. It trains a fresh candidate and compares it to
   config/baseline_metrics.json.
-- Drift (simulated sensor shift on a held-out batch) means investigate, never
-  automatic retrain. The L/M/H difference is a subgroup difference, not drift.
+- Drift: two-sample KS on the pooled numeric features, with the train split as
+  reference and the future split as the current batch (a simulated sensor shift
+  can be applied to it). Type is only a performance diagnostic and is never
+  drift-tested; the L/M/H difference is a subgroup difference, not drift. Drift
+  triggers investigation, never automatic retraining.
 - Feedback is a signal, not ground truth: nothing enters training unless the
   review step validated it.
 - No time series, no paid APIs, no cloud.
@@ -57,7 +60,7 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 3 pipeline + metrics + training + MLflow (done) ·
 4 gate (done) ·
 5 registry + rollback (done) ·
-6 monitoring + drift ·
+6 monitoring + drift (done) ·
 7 feedback + retrain ·
 8 API + CI + Docker
 

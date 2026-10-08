@@ -73,6 +73,14 @@ def source_run_id(version: ModelVersion) -> str:
     return version.run_id
 
 
+def get_champion() -> tuple[ModelVersion, str]:
+    """The approved version and the training run that produced it."""
+    champion = get_alias_version(CHAMPION)
+    if champion is None:
+        raise RegistryError(f"No {CHAMPION} alias on {REGISTERED_MODEL_NAME!r}; promote a candidate first")
+    return champion, source_run_id(champion)
+
+
 def register_run_model(run_id: str) -> ModelVersion:
     """Register the model logged by this training run as a new version and point candidate at it."""
     client = _client()
