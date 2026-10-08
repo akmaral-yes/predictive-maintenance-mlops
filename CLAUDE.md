@@ -45,9 +45,14 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 - No time series, no paid APIs, no cloud.
 
 ## Phases
-1 data contract (done) · 2 config + contexts · 3 pipeline + metrics + training +
-MLflow · 4 gate · 5 registry + rollback · 6 monitoring + drift ·
-7 feedback + retrain · 8 API + CI + Docker.
+1 data contract (done) ·
+2 config + contexts (done) ·
+3 pipeline + metrics + training + MLflow (done) ·
+4 gate ·
+5 registry + rollback ·
+6 monitoring + drift ·
+7 feedback + retrain ·
+8 API + CI + Docker
 
 ## Working style
 - Do only the phase I ask for. Do not scaffold later phases or empty files.
