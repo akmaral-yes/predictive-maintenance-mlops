@@ -133,6 +133,9 @@ def fake_champion_and_data(monkeypatch):
     model = DummyClassifier(strategy="prior").fit(X, y)
     monkeypatch.setattr(monitoring, "load_champion", lambda: ("7", "run-abc", model))
     monkeypatch.setattr(monitoring, "load_monitoring_data", lambda: (X, X.copy(), y))
+    params: dict[str, str] = {}
+    monkeypatch.setattr(monitoring, "load_run_params", lambda run_id: params)
+    return params
 
 
 def test_cli_clean_batch_is_ok(fake_champion_and_data, capsys):
@@ -160,3 +163,55 @@ def test_cli_without_champion_is_operational_error(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "No champion" in out
     assert "RETRAIN" not in out
+
+
+NOTE = "NOTE: this champion was trained on"
+
+
+@pytest.mark.parametrize(
+    ("params", "rows"),
+    [
+        ({"training_mode": "retrain", "n_validated_feedback_rows": "1995"}, 1995),  # A
+        ({"n_validated_feedback_rows": "1995"}, None),  # B: ordinary training
+        ({}, None),  # C: older run without either param
+        ({"training_mode": "retrain"}, None),  # D: count missing
+        ({"training_mode": "retrain", "n_validated_feedback_rows": "lots"}, None),  # E: malformed
+        ({"training_mode": "retrain", "n_validated_feedback_rows": "0"}, None),
+    ],
+)
+def test_in_sample_feedback_rows(params, rows):
+    assert monitoring.in_sample_feedback_rows(params) == rows
+
+
+def test_a_retrained_champion_gets_the_note(fake_champion_and_data, capsys):
+    fake_champion_and_data.update(training_mode="retrain", n_validated_feedback_rows="1995")
+    assert monitoring.main([]) == 0
+    out = capsys.readouterr().out
+    assert f"{NOTE} 1995 rows of the future batch" in out
+    assert out.index(NOTE) < out.index("context    rows")  # directly above the performance table
+
+
+@pytest.mark.parametrize(
+    "params",
+    [{"training_mode": "train"}, {}, {"training_mode": "retrain"}, {"training_mode": "retrain", "n_validated_feedback_rows": "x"}],
+)
+def test_b_c_d_e_no_note_and_monitoring_still_succeeds(fake_champion_and_data, capsys, params):
+    fake_champion_and_data.update(params)
+    assert monitoring.main([]) == 0
+    assert NOTE not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("simulate", [[], ["--simulate-shift"]])
+def test_f_g_note_changes_neither_exit_code_nor_drift(fake_champion_and_data, capsys, simulate):
+    def drift_section(out: str) -> str:
+        return out[out.index("Data drift"):]
+
+    code_without = monitoring.main(simulate)
+    out_without = capsys.readouterr().out
+    fake_champion_and_data.update(training_mode="retrain", n_validated_feedback_rows="1995")
+    code_with = monitoring.main(simulate)
+    out_with = capsys.readouterr().out
+
+    assert NOTE in out_with and NOTE not in out_without
+    assert code_with == code_without
+    assert drift_section(out_with) == drift_section(out_without)

@@ -37,3 +37,8 @@ EXPERIMENT_NAME: Final[str] = "ai4i-predictive-maintenance"
 MODEL_NAME: Final[str] = "model"
 # Stable name of the versioned model family in the MLflow Model Registry.
 REGISTERED_MODEL_NAME: Final[str] = "ai4i-failure-model"
+
+# Generated feedback files (gitignored). Candidates are the immutable record of what arrived;
+# validated feedback is written by the review step and is the only feedback retraining reads.
+FEEDBACK_CANDIDATES_PATH: Final[Path] = ROOT / "data" / "feedback" / "feedback_candidates.jsonl"
+VALIDATED_FEEDBACK_PATH: Final[Path] = ROOT / "data" / "feedback" / "validated_feedback.jsonl"

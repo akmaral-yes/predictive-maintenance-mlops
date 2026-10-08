@@ -1,12 +1,11 @@
 import mlflow
-import mlflow.sklearn
 
-from ai4i_mlops.config import MODEL_NAME, PREDICTION_THRESHOLD, RF_PARAMS, SEED
+from ai4i_mlops.config import PREDICTION_THRESHOLD, RF_PARAMS, SEED
 from ai4i_mlops.contexts import CONTEXTS
 from ai4i_mlops.data import clean, load_raw, split
 from ai4i_mlops.evaluation import evaluate_slices, format_slices
 from ai4i_mlops.pipeline import build_pipeline, predict_failure_proba
-from ai4i_mlops.tracking import get_or_create_experiment_id
+from ai4i_mlops.tracking import get_or_create_experiment_id, log_fitted_pipeline
 
 
 def train() -> tuple[str, dict[str, float | int | None]]:
@@ -24,13 +23,7 @@ def train() -> tuple[str, dict[str, float | int | None]]:
             {**RF_PARAMS, "seed": SEED, "prediction_threshold": PREDICTION_THRESHOLD, "n_train_rows": len(X_train)}
         )
         mlflow.log_metrics({name: value for name, value in results.items() if value is not None})
-        # skops refuses tree internals by default; this model is produced here, so trust only that type.
-        mlflow.sklearn.log_model(
-            model,
-            name=MODEL_NAME,
-            input_example=X_train.head(5),
-            skops_trusted_types=["sklearn.tree._tree.Tree"],
-        )
+        log_fitted_pipeline(model, X_train)
     return run.info.run_id, results
 
 

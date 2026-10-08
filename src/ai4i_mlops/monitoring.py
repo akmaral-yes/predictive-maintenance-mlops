@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import mlflow.sklearn
 import pandas as pd
+from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from scipy.stats import ks_2samp
 from sklearn.pipeline import Pipeline
@@ -21,6 +22,7 @@ from ai4i_mlops.data import NUMERIC, clean, load_raw, split
 from ai4i_mlops.evaluation import evaluate_slices, format_slices
 from ai4i_mlops.pipeline import predict_failure_proba
 from ai4i_mlops.registry import RegistryError, get_champion
+from ai4i_mlops.tracking import configure_tracking
 
 PREFIX = "batch"
 EXIT_OK = 0
@@ -83,6 +85,23 @@ def load_champion() -> tuple[str, str, Pipeline]:
     return str(champion.version), run_id, model
 
 
+def load_run_params(run_id: str) -> dict[str, str]:
+    """Params recorded on a training run (MLflow stores them as strings)."""
+    configure_tracking()
+    return dict(MlflowClient().get_run(run_id).data.params)
+
+
+def in_sample_feedback_rows(params: Mapping[str, str]) -> int | None:
+    """Future-batch rows a retrained champion was trained on; None if not retrained, unknown or zero."""
+    if params.get("training_mode") != "retrain":
+        return None
+    try:
+        rows = int(params["n_validated_feedback_rows"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return rows if rows > 0 else None
+
+
 def load_monitoring_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
     """Train features as reference, future features and labels as the current batch."""
     splits = split(*clean(load_raw()))
@@ -98,6 +117,7 @@ def format_monitoring_report(
     n_reference: int,
     performance: dict[str, float | int | None],
     drift: tuple[FeatureDrift, ...],
+    in_sample_rows: int | None = None,
 ) -> str:
     drifted = [d.feature for d in drift if d.drifted]
     mode = "normal"
@@ -118,6 +138,14 @@ def format_monitoring_report(
         "",
         "Performance diagnostics" + (" (on the SHIFTED batch)" if simulated else ""),
         "-----------------------",
+    ]
+    if in_sample_rows is not None:
+        lines += [
+            f"NOTE: this champion was trained on {in_sample_rows} rows of the future batch, so the",
+            "performance figures below are partly in-sample and not an unbiased",
+            "estimate. The drift check is unaffected.",
+        ]
+    lines += [
         format_slices(performance, CONTEXTS, prefix=PREFIX),
         (
             f"Note: Type H has only {performance[f'{PREFIX}_H_n_failures']} failures in this batch; "
@@ -152,6 +180,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         version, run_id, model = load_champion()
+        in_sample_rows = in_sample_feedback_rows(load_run_params(run_id))
         X_reference, X_current, y_current = load_monitoring_data()
         if args.simulate_shift:
             X_current = apply_simulated_shift(X_current)
@@ -161,7 +190,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"error: {e}")
         return EXIT_ERROR
 
-    print(format_monitoring_report(version, run_id, args.simulate_shift, len(X_reference), performance, drift))
+    print(
+        format_monitoring_report(
+            version, run_id, args.simulate_shift, len(X_reference), performance, drift, in_sample_rows
+        )
+    )
     return EXIT_INVESTIGATE if any(d.drifted for d in drift) else EXIT_OK
 
 

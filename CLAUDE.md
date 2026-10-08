@@ -49,9 +49,19 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
   reference and the future split as the current batch (a simulated sensor shift
   can be applied to it). Type is only a performance diagnostic and is never
   drift-tested; the L/M/H difference is a subgroup difference, not drift. Drift
-  triggers investigation, never automatic retraining.
+  triggers investigation, never automatic retraining. After retraining on future
+  feedback, performance monitoring on that same future batch is partly
+  in-sample, and the monitoring report explicitly labels it as such.
 - Feedback is a signal, not ground truth: nothing enters training unless the
-  review step validated it.
+  review step validated it. Feedback candidates come from the future split and
+  stay pending and unchanged in the candidate file; an explicit review writes
+  approved records to a separate validated file, and rejected or unreviewed rows
+  never enter training. Retraining uses original train rows plus validated
+  feedback only, evaluates on the unchanged fixed test split, and the retrained
+  candidate still goes through the normal gate and registry lifecycle. Once
+  future-split rows are used for retraining, that same future batch is no
+  longer an unbiased evaluation set for the retrained model; performance on it
+  is in-sample.
 - No time series, no paid APIs, no cloud.
 
 ## Phases
@@ -61,7 +71,7 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 4 gate (done) ·
 5 registry + rollback (done) ·
 6 monitoring + drift (done) ·
-7 feedback + retrain ·
+7 feedback + retrain (done) ·
 8 API + CI + Docker
 
 ## Working style
