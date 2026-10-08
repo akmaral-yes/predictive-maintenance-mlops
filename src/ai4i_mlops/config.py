@@ -13,6 +13,13 @@ RF_PARAMS: Final[dict[str, int | str]] = {
 # Turns probabilities into 0/1 predictions for recall/precision/F1. Not a gate threshold.
 PREDICTION_THRESHOLD: Final[float] = 0.5
 
+# Gate policy. Demo values informed by the first baseline run (pooled test recall 0.657,
+# AP 0.746), not statistically derived production thresholds.
+# Minimum acceptable pooled failure recall.
+MIN_RECALL: Final[float] = 0.60
+# Maximum allowed drop in pooled Average Precision relative to the current champion.
+AP_MARGIN: Final[float] = 0.05
+
 ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
 MLFLOW_TRACKING_URI: Final[str] = f"sqlite:///{(ROOT / 'mlflow.db').as_posix()}"

@@ -13,15 +13,11 @@ from sklearn.metrics import (
     recall_score,
 )
 
-from ai4i_mlops.config import (
-    EXPERIMENT_NAME,
-    MLFLOW_TRACKING_URI,
-    MODEL_NAME,
-    PREDICTION_THRESHOLD,
-)
+from ai4i_mlops.config import EXPERIMENT_NAME, MODEL_NAME, PREDICTION_THRESHOLD
 from ai4i_mlops.contexts import CONTEXTS, select_context
 from ai4i_mlops.data import clean, load_raw, split
 from ai4i_mlops.pipeline import predict_failure_proba
+from ai4i_mlops.tracking import configure_tracking
 
 METRICS = ("recall", "precision", "f1", "average_precision")
 
@@ -110,7 +106,7 @@ def main() -> None:
     parser.add_argument("--run-id", help="MLflow run to load (default: latest finished run)")
     args = parser.parse_args()
 
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    configure_tracking()
     run_id = args.run_id or _latest_run_id()
     model = mlflow.sklearn.load_model(f"runs:/{run_id}/{MODEL_NAME}")
 

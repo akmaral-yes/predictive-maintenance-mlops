@@ -31,10 +31,12 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 - Settings (seed, threshold, model params, MLflow location) live in config.py.
 
 ## Lifecycle rules
-- Gate: promote only if pooled test recall >= R_MIN and candidate AP >=
+- Gate: promote only if pooled test recall >= MIN_RECALL and candidate AP >=
   champion AP - AP_MARGIN. The no-regression check is on AP, not recall (a model
-  that predicts failure everywhere has recall 1.0). Thresholds are set in
-  Phase 4 from real numbers; do not invent them before then.
+  that predicts failure everywhere has recall 1.0). Thresholds: MIN_RECALL = 0.60,
+  AP_MARGIN = 0.05. These are demo policy values informed by the first baseline
+  (pooled test recall = 0.657, pooled test AP = 0.746), not statistically derived
+  production thresholds.
 - Registry: candidate and champion are MLflow aliases. Rollback is an alias move.
 - CI never uses MLflow. It trains a fresh candidate and compares it to
   config/baseline_metrics.json.
@@ -48,7 +50,7 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 1 data contract (done) ·
 2 config + contexts (done) ·
 3 pipeline + metrics + training + MLflow (done) ·
-4 gate ·
+4 gate (done) ·
 5 registry + rollback ·
 6 monitoring + drift ·
 7 feedback + retrain ·
