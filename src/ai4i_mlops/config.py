@@ -25,4 +25,7 @@ ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 MLFLOW_TRACKING_URI: Final[str] = f"sqlite:///{(ROOT / 'mlflow.db').as_posix()}"
 MLFLOW_ARTIFACT_ROOT: Final[Path] = ROOT / "mlruns"
 EXPERIMENT_NAME: Final[str] = "ai4i-predictive-maintenance"
+# Name of the model logged inside each training run.
 MODEL_NAME: Final[str] = "model"
+# Stable name of the versioned model family in the MLflow Model Registry.
+REGISTERED_MODEL_NAME: Final[str] = "ai4i-failure-model"

@@ -13,10 +13,11 @@ from sklearn.metrics import (
     recall_score,
 )
 
-from ai4i_mlops.config import EXPERIMENT_NAME, MODEL_NAME, PREDICTION_THRESHOLD
+from ai4i_mlops.config import MODEL_NAME, PREDICTION_THRESHOLD, REGISTERED_MODEL_NAME
 from ai4i_mlops.contexts import CONTEXTS, select_context
 from ai4i_mlops.data import clean, load_raw, split
 from ai4i_mlops.pipeline import predict_failure_proba
+from ai4i_mlops.registry import CHAMPION, get_alias_version
 from ai4i_mlops.tracking import configure_tracking
 
 METRICS = ("recall", "precision", "f1", "average_precision")
@@ -86,35 +87,28 @@ def format_slices(results: dict[str, float | int | None], contexts: Iterable[str
     return "\n".join(lines)
 
 
-def _latest_run_id() -> str:
-    experiment = mlflow.get_experiment_by_name(EXPERIMENT_NAME)
-    runs = [] if experiment is None else mlflow.search_runs(
-        [experiment.experiment_id],
-        filter_string="attributes.status = 'FINISHED'",
-        order_by=["start_time DESC"],
-        max_results=1,
-        output_format="list",
-    )
-    if not runs:
-        raise SystemExit(f"No finished runs in experiment {EXPERIMENT_NAME!r}; run ai4i_mlops.training first.")
-    return runs[0].info.run_id
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate a logged model on the fixed test split.")
     parser.add_argument("--context", choices=CONTEXTS, required=True)
-    parser.add_argument("--run-id", help="MLflow run to load (default: latest finished run)")
+    parser.add_argument("--run-id", help="training run whose logged model to load (default: registry champion)")
     args = parser.parse_args()
 
     configure_tracking()
-    run_id = args.run_id or _latest_run_id()
-    model = mlflow.sklearn.load_model(f"runs:/{run_id}/{MODEL_NAME}")
+    if args.run_id:
+        source = f"run {args.run_id}"
+        model = mlflow.sklearn.load_model(f"runs:/{args.run_id}/{MODEL_NAME}")
+    else:
+        champion = get_alias_version(CHAMPION)
+        if champion is None:
+            raise SystemExit(f"No {CHAMPION} alias on {REGISTERED_MODEL_NAME!r}; promote a candidate or pass --run-id.")
+        source = f"{CHAMPION} version {champion.version} (run {champion.run_id})"
+        model = mlflow.sklearn.load_model(f"models:/{REGISTERED_MODEL_NAME}@{CHAMPION}")
 
     X, y = clean(load_raw())
     X_test, y_test = split(X, y)["test"]
     results = evaluate_slices(X_test, y_test, predict_failure_proba(model, X_test))
 
-    print(f"run {run_id}")
+    print(source)
     print(format_slices(results, [args.context]))
 
 

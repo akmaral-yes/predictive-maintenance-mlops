@@ -37,7 +37,12 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
   AP_MARGIN = 0.05. These are demo policy values informed by the first baseline
   (pooled test recall = 0.657, pooled test AP = 0.746), not statistically derived
   production thresholds.
-- Registry: candidate and champion are MLflow aliases. Rollback is an alias move.
+- Registry: aliases are `candidate` and `champion`. Registering a run's model
+  sets candidate. Promotion runs the Phase 4 gate: PASS moves champion to the
+  candidate version and consumes candidate; FAIL leaves champion unchanged.
+  Rollback explicitly moves champion to a chosen existing version, and accepts
+  only versions that previously passed the gate. A training run can be
+  registered only once.
 - CI never uses MLflow. It trains a fresh candidate and compares it to
   config/baseline_metrics.json.
 - Drift (simulated sensor shift on a held-out batch) means investigate, never
@@ -51,7 +56,7 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 2 config + contexts (done) ·
 3 pipeline + metrics + training + MLflow (done) ·
 4 gate (done) ·
-5 registry + rollback ·
+5 registry + rollback (done) ·
 6 monitoring + drift ·
 7 feedback + retrain ·
 8 API + CI + Docker
