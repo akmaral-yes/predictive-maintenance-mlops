@@ -42,3 +42,8 @@ REGISTERED_MODEL_NAME: Final[str] = "ai4i-failure-model"
 # validated feedback is written by the review step and is the only feedback retraining reads.
 FEEDBACK_CANDIDATES_PATH: Final[Path] = ROOT / "data" / "feedback" / "feedback_candidates.jsonl"
 VALIDATED_FEEDBACK_PATH: Final[Path] = ROOT / "data" / "feedback" / "validated_feedback.jsonl"
+
+# Default destination of `registry export` (gitignored); mounted read-only into the container.
+MODEL_EXPORT_DIR: Final[Path] = ROOT / "model_export"
+# Committed CI baseline: a fresh train-split-only fit evaluated on the fixed test split.
+BASELINE_METRICS_PATH: Final[Path] = ROOT / "config" / "baseline_metrics.json"

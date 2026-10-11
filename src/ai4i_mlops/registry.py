@@ -5,14 +5,19 @@ training run -> logged model -> registered model version; aliases point at versi
 """
 
 import argparse
+import json
+import shutil
+import tempfile
 from collections.abc import Sequence
+from pathlib import Path
 
 import mlflow
+import mlflow.artifacts
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 
-from ai4i_mlops.config import MODEL_NAME, REGISTERED_MODEL_NAME
+from ai4i_mlops.config import MODEL_EXPORT_DIR, MODEL_NAME, REGISTERED_MODEL_NAME, ROOT
 from ai4i_mlops.gate import (
     evaluate_gate,
     format_report,
@@ -24,6 +29,8 @@ from ai4i_mlops.tracking import configure_tracking
 CANDIDATE = "candidate"
 CHAMPION = "champion"
 GATE_TAG = "gate_result"
+# Written beside MLmodel by `export`; read by the API when serving from AI4I_MODEL_URI.
+MODEL_INFO_FILE = "model_info.json"
 
 EXIT_OK = 0
 EXIT_GATE_FAILED = 1
@@ -164,6 +171,60 @@ def rollback_champion(target_version: str) -> None:
     print(f"champion: {champion.version} -> {target.version}")
 
 
+def _is_protected(path: Path) -> bool:
+    """Root, the repository, the home directory, or any directory containing them."""
+    protected = {Path(path.anchor), ROOT.resolve(), Path.home().resolve()}
+    return path in protected or any(path in p.parents for p in protected)
+
+
+def _is_previous_export(path: Path) -> bool:
+    return (path / "MLmodel").is_file() and (path / MODEL_INFO_FILE).is_file()
+
+
+def export_champion(destination: Path, overwrite: bool = False) -> tuple[ModelVersion, Path]:
+    """Copy the champion's existing logged model artifact (not re-saved) and write model_info.json.
+
+    Read-only with respect to MLflow: no run, version, alias or tag is created or changed.
+    """
+    champion, run_id = get_champion()
+    dest = destination.expanduser().resolve()
+    if dest.exists():
+        if not dest.is_dir():
+            raise RegistryError(f"{dest} exists and is not a directory")
+        if any(dest.iterdir()):
+            if not overwrite:
+                raise RegistryError(f"{dest} is not empty; pass --overwrite to replace a previous export")
+            if _is_protected(dest) or not _is_previous_export(dest):
+                raise RegistryError(
+                    f"refusing to overwrite {dest}: not a previous model export "
+                    f"(needs MLmodel and {MODEL_INFO_FILE}) or a protected directory; nothing was deleted"
+                )
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".export-", dir=dest.parent))
+    try:
+        downloaded = Path(
+            mlflow.artifacts.download_artifacts(
+                artifact_uri=f"models:/{REGISTERED_MODEL_NAME}/{champion.version}", dst_path=str(staging)
+            )
+        )
+        if not (downloaded / "MLmodel").is_file():
+            raise RegistryError(f"downloaded champion artifact has no MLmodel file ({downloaded})")
+        info = {
+            "registered_model_name": REGISTERED_MODEL_NAME,
+            "model_version": str(champion.version),
+            "source_run_id": run_id,
+        }
+        (downloaded / MODEL_INFO_FILE).write_text(json.dumps(info, indent=2) + "\n")
+        if dest.exists():
+            shutil.rmtree(dest)  # only reached for an empty dir or a verified previous export
+        downloaded.rename(dest)
+        dest.chmod(0o755)  # mkdtemp is 0700; the container's non-root user must be able to read the mount
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+    return champion, dest
+
+
 def print_status() -> None:
     print(f"registered model: {REGISTERED_MODEL_NAME}")
     for alias in (CANDIDATE, CHAMPION):
@@ -186,6 +247,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--to-version", required=True, type=int
     )
     commands.add_parser("status", help="show candidate and champion")
+    export = commands.add_parser("export", help="copy the champion model to a directory for serving")
+    export.add_argument("--to", type=Path, default=MODEL_EXPORT_DIR, help=f"destination (default: {MODEL_EXPORT_DIR})")
+    export.add_argument("--overwrite", action="store_true", help="replace a previous export at the destination")
     args = parser.parse_args(argv)
 
     try:
@@ -199,9 +263,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return EXIT_GATE_FAILED
         elif args.command == "rollback":
             rollback_champion(str(args.to_version))
+        elif args.command == "export":
+            champion, dest = export_champion(args.to, args.overwrite)
+            print(f"exported {CHAMPION} version {champion.version} (run {champion.run_id}) to {dest}")
         else:
             print_status()
-    except (RegistryError, MlflowException, ValueError) as e:
+    except (RegistryError, MlflowException, ValueError, OSError) as e:
         print(f"error: {e}")
         return EXIT_ERROR
     return EXIT_OK

@@ -43,8 +43,20 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
   Rollback explicitly moves champion to a chosen existing version, and accepts
   only versions that previously passed the gate. A training run can be
   registered only once.
-- CI never uses MLflow. It trains a fresh candidate and compares it to
-  config/baseline_metrics.json.
+- CI never uses MLflow or the registry. The baseline check trains a fresh
+  candidate on the train split only and runs the existing gate against the
+  committed config/baseline_metrics.json, itself a fresh train-split-only fit
+  (never the current champion's metrics; updating it is an explicit decision).
+  lint, tests and baseline-check are independent CI jobs; the Docker build is a
+  separate job.
+- Serving: one FastAPI app loads the model once per process with the sklearn
+  flavour (predict_proba is required). Default target is the registry champion;
+  AI4I_MODEL_URI overrides it with an exported model directory. Service
+  telemetry (/metrics) is process-local and resets on restart.
+- Export: `registry export` copies the champion's logged model artifact and
+  writes model_info.json (model name, version, source run) beside MLmodel. The
+  Docker image contains no model, dataset or MLflow store; the export is mounted
+  read-only at runtime.
 - Drift: two-sample KS on the pooled numeric features, with the train split as
   reference and the future split as the current batch (a simulated sensor shift
   can be applied to it). Type is only a performance diagnostic and is never
@@ -72,7 +84,7 @@ reviewed retraining, and CI. Portfolio project; keep it small and explainable.
 5 registry + rollback (done) ·
 6 monitoring + drift (done) ·
 7 feedback + retrain (done) ·
-8 API + CI + Docker
+8 API + CI + Docker (done)
 
 ## Working style
 - Do only the phase I ask for. Do not scaffold later phases or empty files.

@@ -223,3 +223,6 @@ mlflow.db
 
 # Generated feedback files (Phase 7)
 data/feedback/
+
+# Exported champion model (registry export)
+model_export/

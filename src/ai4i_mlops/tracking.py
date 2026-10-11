@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import mlflow
 import mlflow.sklearn
 import pandas as pd
@@ -10,10 +12,19 @@ from ai4i_mlops.config import (
     MODEL_NAME,
 )
 
+SQLITE_PREFIX = "sqlite:///"
+
 
 def configure_tracking() -> None:
     """Point MLflow at the repo-local SQLite store."""
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+
+def local_store_missing() -> bool:
+    """True when the configured tracking store is a local SQLite file that does not exist yet."""
+    if not MLFLOW_TRACKING_URI.startswith(SQLITE_PREFIX):
+        return False
+    return not Path(MLFLOW_TRACKING_URI.removeprefix(SQLITE_PREFIX)).exists()
 
 
 def get_or_create_experiment_id() -> str:

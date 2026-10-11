@@ -1,3 +1,5 @@
+import json
+
 import mlflow
 import mlflow.sklearn
 import pytest
@@ -198,3 +200,74 @@ def test_get_champion_returns_version_and_source_run():
     assert registry.promote_candidate()
     version, source_run = registry.get_champion()
     assert (str(version.version), source_run) == ("1", run_id)
+
+
+def _registry_snapshot() -> tuple:
+    client = mlflow.MlflowClient()
+    versions = sorted(
+        (str(v.version), v.run_id, tuple(sorted(v.tags.items())))
+        for v in client.search_model_versions(f"name = '{REGISTERED_MODEL_NAME}'")
+    )
+    aliases = tuple(sorted(registry._aliases().items()))
+    runs = len(client.search_runs([tracking.get_or_create_experiment_id()]))
+    return versions, aliases, runs
+
+
+def test_export_copies_champion_with_metadata(tmp_path):
+    version = _champion()
+    run_id = registry.get_version(version).run_id
+    before = _registry_snapshot()
+
+    assert registry.main(["export", "--to", str(tmp_path / "export")]) == registry.EXIT_OK
+
+    export = tmp_path / "export"
+    assert (export / "MLmodel").is_file()
+    info = json.loads((export / registry.MODEL_INFO_FILE).read_text())
+    assert info == {"registered_model_name": REGISTERED_MODEL_NAME, "model_version": version, "source_run_id": run_id}
+    assert mlflow.sklearn.load_model(str(export)).predict_proba([[0]]).shape == (1, 2)
+    assert _registry_snapshot() == before  # H: read-only
+
+
+def test_export_without_champion_is_an_error(tmp_path):
+    _register(*GOOD)
+    assert registry.main(["export", "--to", str(tmp_path / "export")]) == registry.EXIT_ERROR
+    assert not (tmp_path / "export").exists()
+
+
+def test_export_refuses_non_empty_destination_without_overwrite(tmp_path):
+    _champion()
+    dest = tmp_path / "export"
+    dest.mkdir()
+    (dest / "notes.txt").write_text("keep me")
+    assert registry.main(["export", "--to", str(dest)]) == registry.EXIT_ERROR
+    assert (dest / "notes.txt").read_text() == "keep me"
+
+
+def test_overwrite_refuses_directory_that_is_not_an_export(tmp_path):
+    _champion()
+    dest = tmp_path / "export"
+    dest.mkdir()
+    (dest / "notes.txt").write_text("keep me")
+    assert registry.main(["export", "--to", str(dest), "--overwrite"]) == registry.EXIT_ERROR
+    assert (dest / "notes.txt").read_text() == "keep me"
+
+
+def test_overwrite_refuses_protected_directory_even_if_it_looks_like_an_export(tmp_path, monkeypatch):
+    _champion()
+    protected = tmp_path / "repo"
+    protected.mkdir()
+    for name in ("MLmodel", registry.MODEL_INFO_FILE, "precious.txt"):
+        (protected / name).write_text("x")
+    monkeypatch.setattr(registry, "ROOT", protected)  # treat it as the repository root
+    assert registry.main(["export", "--to", str(protected), "--overwrite"]) == registry.EXIT_ERROR
+    assert sorted(p.name for p in protected.iterdir()) == sorted(["MLmodel", registry.MODEL_INFO_FILE, "precious.txt"])
+
+
+def test_overwrite_replaces_a_previous_export(tmp_path):
+    _champion()
+    dest = tmp_path / "export"
+    assert registry.main(["export", "--to", str(dest)]) == registry.EXIT_OK
+    (dest / "stale.txt").write_text("from an older export")
+    assert registry.main(["export", "--to", str(dest), "--overwrite"]) == registry.EXIT_OK
+    assert not (dest / "stale.txt").exists()
+    assert (dest / "MLmodel").is_file()

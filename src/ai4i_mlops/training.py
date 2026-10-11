@@ -1,4 +1,6 @@
 import mlflow
+import pandas as pd
+from sklearn.pipeline import Pipeline
 
 from ai4i_mlops.config import PREDICTION_THRESHOLD, RF_PARAMS, SEED
 from ai4i_mlops.contexts import CONTEXTS
@@ -8,6 +10,14 @@ from ai4i_mlops.pipeline import build_pipeline, predict_failure_proba
 from ai4i_mlops.tracking import get_or_create_experiment_id, log_fitted_pipeline
 
 
+def fit_and_evaluate(
+    X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series
+) -> tuple[Pipeline, dict[str, float | int | None]]:
+    """Fit a fresh pipeline and evaluate it on the test split. No MLflow."""
+    model = build_pipeline().fit(X_train, y_train)
+    return model, evaluate_slices(X_test, y_test, predict_failure_proba(model, X_test))
+
+
 def train() -> tuple[str, dict[str, float | int | None]]:
     """Fit on the 60% train split, evaluate on the fixed test split, log one MLflow run."""
     X, y = clean(load_raw())
@@ -15,8 +25,7 @@ def train() -> tuple[str, dict[str, float | int | None]]:
     X_train, y_train = splits["train"]
     X_test, y_test = splits["test"]
 
-    model = build_pipeline().fit(X_train, y_train)
-    results = evaluate_slices(X_test, y_test, predict_failure_proba(model, X_test))
+    model, results = fit_and_evaluate(X_train, y_train, X_test, y_test)
 
     with mlflow.start_run(experiment_id=get_or_create_experiment_id()) as run:
         mlflow.log_params(
