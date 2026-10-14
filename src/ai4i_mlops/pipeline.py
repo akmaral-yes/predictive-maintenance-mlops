@@ -1,10 +1,9 @@
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.dummy import DummyClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-from ai4i_mlops.config import RF_PARAMS
 from ai4i_mlops.data import CATEGORICAL, NUMERIC
 
 
@@ -16,7 +15,7 @@ def build_pipeline() -> Pipeline:
             ("numeric", "passthrough", NUMERIC),
         ]
     )
-    return Pipeline([("preprocess", preprocess), ("model", RandomForestClassifier(**RF_PARAMS))])
+    return Pipeline([("preprocess", preprocess), ("model", DummyClassifier(strategy="prior"))])
 
 
 def predict_failure_proba(model: Pipeline, X: pd.DataFrame) -> pd.Series:
