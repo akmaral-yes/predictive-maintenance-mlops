@@ -226,3 +226,5 @@ data/feedback/
 
 # Exported champion model (registry export)
 model_export/
+
+.DS_Store
