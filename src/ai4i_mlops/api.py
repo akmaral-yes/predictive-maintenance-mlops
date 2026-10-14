@@ -141,7 +141,7 @@ class ServiceMetrics:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.metrics = ServiceMetrics()
     app.state.serving = None
     app.state.load_error = None
